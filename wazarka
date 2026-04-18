@@ -1,0 +1,199 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox, simpledialog
+import pandas as pd
+import numpy as np
+import pyreadstat
+import os
+
+class WazarkaApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Ważarka Danych SPSS (Raking/IPF)")
+        self.root.geometry("500x350")
+        
+        self.spss_path = ""
+        self.excel_path = ""
+        
+        # --- UI ELEMENTS ---
+        tk.Label(root, text="1. Wybierz plik z danymi (SPSS):", font=('Arial', 10, 'bold')).pack(pady=(10,0))
+        self.btn_spss = tk.Button(root, text="Przeglądaj...", command=self.load_spss)
+        self.btn_spss.pack()
+        self.lbl_spss = tk.Label(root, text="Nie wybrano pliku", fg="gray")
+        self.lbl_spss.pack()
+
+        tk.Label(root, text="2. Źródło wag docelowych:", font=('Arial', 10, 'bold')).pack(pady=(15,0))
+        
+        frame_src = tk.Frame(root)
+        frame_src.pack()
+        self.btn_excel = tk.Button(frame_src, text="Wczytaj z Excela", command=self.load_excel)
+        self.btn_excel.pack(side=tk.LEFT, padx=5)
+        self.btn_manual = tk.Button(frame_src, text="Wpisz ręcznie", command=self.set_manual)
+        self.btn_manual.pack(side=tk.LEFT, padx=5)
+        
+        self.lbl_src = tk.Label(root, text="Nie wybrano źródła wag", fg="gray")
+        self.lbl_src.pack()
+
+        frame_limits = tk.Frame(root)
+        frame_limits.pack(pady=15)
+        tk.Label(frame_limits, text="Min Waga:").pack(side=tk.LEFT)
+        self.entry_min = tk.Entry(frame_limits, width=5)
+        self.entry_min.insert(0, "0.33")
+        self.entry_min.pack(side=tk.LEFT, padx=5)
+        
+        tk.Label(frame_limits, text="Max Waga:").pack(side=tk.LEFT)
+        self.entry_max = tk.Entry(frame_limits, width=5)
+        self.entry_max.insert(0, "3.0")
+        self.entry_max.pack(side=tk.LEFT, padx=5)
+
+        self.btn_run = tk.Button(root, text="GENERUJ WAGI I ZAPISZ", bg="green", fg="white", font=('Arial', 12, 'bold'), command=self.run_process)
+        self.btn_run.pack(pady=20)
+        
+        self.targets = {} 
+        self.manual_mode = False
+
+    def load_spss(self):
+        self.spss_path = filedialog.askopenfilename(filetypes=[("SPSS Files", "*.sav")])
+        if self.spss_path:
+            self.lbl_spss.config(text=os.path.basename(self.spss_path), fg="black")
+
+    def load_excel(self):
+        self.excel_path = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx *.xls")])
+        if self.excel_path:
+            self.lbl_src.config(text=os.path.basename(self.excel_path), fg="black")
+            self.manual_mode = False
+
+    def set_manual(self):
+        self.manual_mode = True
+        self.lbl_src.config(text="Tryb: Wpisywanie ręczne", fg="blue")
+
+    def ipf_raking(self, df, targets, min_w, max_w, max_iter=50, tol=1e-4):
+        df['WAGA'] = 1.0
+        N = len(df)
+        
+        for _ in range(max_iter):
+            max_change = 0
+            for var, target_dist in targets.items():
+                current_weighted = df.groupby(var)['WAGA'].sum()
+                total_weight = current_weighted.sum()
+                
+                for cat, target_prop in target_dist.items():
+                    target_sum = target_prop * total_weight
+                    current_sum = current_weighted.get(cat, 0)
+                    
+                    if current_sum > 0:
+                        adjustment = target_sum / current_sum
+                        mask = df[var] == cat
+                        old_weights = df.loc[mask, 'WAGA'].copy()
+                        df.loc[mask, 'WAGA'] *= adjustment
+                        change = np.max(np.abs(df.loc[mask, 'WAGA'] - old_weights))
+                        max_change = max(max_change, change)
+                        
+            if max_change < tol:
+                break
+                
+        df['WAGA'] = df['WAGA'].clip(lower=min_w, upper=max_w)
+        df['WAGA'] = df['WAGA'] * (N / df['WAGA'].sum())
+        return df
+
+    def get_manual_targets(self, df):
+        vars_str = simpledialog.askstring("Zmienne", "Podaj nazwy zmiennych do zważenia (po przecinku):\nnp. Plec, Wiek")
+        if not vars_str: return None
+        
+        variables = [v.strip() for v in vars_str.split(',')]
+        targets = {}
+        
+        for var in variables:
+            if var not in df.columns:
+                messagebox.showerror("Błąd", f"Zmienna '{var}' nie istnieje w bazie!")
+                return None
+                
+            unique_vals = df[var].dropna().unique()
+            targets[var] = {}
+            for val in unique_vals:
+                prop = simpledialog.askfloat("Proporcje", f"Zmienna: {var}\nPodaj docelową proporcję (0.0 - 1.0) dla kategorii [{val}]:")
+                if prop is None: return None
+                targets[var][val] = prop
+                
+        return targets
+
+    def run_process(self):
+        if not self.spss_path:
+            messagebox.showwarning("Uwaga", "Najpierw wybierz plik SPSS!")
+            return
+            
+        try:
+            min_w = float(self.entry_min.get())
+            max_w = float(self.entry_max.get())
+        except ValueError:
+            messagebox.showerror("Błąd", "Limity wag muszą być liczbami!")
+            return
+
+        try:
+            # 1. Wczytanie danych SPSS
+            df, meta = pyreadstat.read_sav(self.spss_path)
+            targets = {}
+
+            # 2. Pobranie targetów (Excel lub Ręcznie)
+            if self.manual_mode:
+                targets = self.get_manual_targets(df)
+                if not targets: return 
+            else:
+                if not self.excel_path:
+                    messagebox.showwarning("Uwaga", "Wybierz plik Excel lub kliknij 'Wpisz ręcznie'.")
+                    return
+                
+                # Inteligentne czytanie Excela - odczytuje pozycję kolumn (0, 1, 2) niezależnie od nagłówków
+                df_excel = pd.read_excel(self.excel_path)
+                
+                for _, row in df_excel.iterrows():
+                    var = row.iloc[0]
+                    cat = row.iloc[1]
+                    prop = float(row.iloc[2])
+                    
+                    if var not in targets:
+                        targets[var] = {}
+                    
+                    if var in meta.variable_value_labels:
+                        val_map = meta.variable_value_labels[var] 
+                        inv_map = {v: k for k, v in val_map.items()} 
+                        
+                        if cat in inv_map:
+                            cat = inv_map[cat] 
+                    
+                    targets[var][cat] = prop
+
+            # 3. Walidacja sumy proporcji (czy dają 1.0)
+            for var, dist in targets.items():
+                if not np.isclose(sum(dist.values()), 1.0, atol=0.01):
+                    messagebox.showwarning("Ostrzeżenie", f"Proporcje dla zmiennej {var} nie sumują się do 1.0 (suma: {sum(dist.values())})!")
+
+            # 4. Ważenie (Raking)
+            df = self.ipf_raking(df, targets, min_w, max_w)
+
+            # 5. Aktualizacja metadanych o nową zmienną
+            if 'WAGA' not in meta.column_names:
+                meta.column_names.append('WAGA')
+                meta.column_labels.append('Waga analityczna (Raking)')
+
+            # 6. Bezpieczny zapis do C:\WAGA SPSS
+            save_dir = r"C:\WAGA SPSS"
+            
+            # Jeśli folder nie istnieje, Python go utworzy (exist_ok=True zapobiega błędom, gdy już istnieje)
+            os.makedirs(save_dir, exist_ok=True)
+            
+            base_name = os.path.splitext(os.path.basename(self.spss_path))[0]
+            out_path = os.path.join(save_dir, f"{base_name}_zwazony.sav")
+            
+            pyreadstat.write_sav(df, out_path, 
+                                 column_labels=meta.column_labels, 
+                                 variable_value_labels=meta.variable_value_labels)
+            
+            messagebox.showinfo("Sukces", f"Zakończono powodzeniem!\n\nPlik znajdziesz w folderze:\n{out_path}")
+
+        except Exception as e:
+            messagebox.showerror("Błąd Krytyczny", f"Wystąpił błąd:\n{str(e)}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = WazarkaApp(root)
+    root.mainloop()
