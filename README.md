@@ -1,48 +1,66 @@
 # [EN] SPSS Data Weighter - Raking/IPF Automation Tool
 
-A professional GUI-based tool designed for Data Processing (DP) specialists to automate sample weighting in SPSS using the Raking (Iterative Proportional Fitting) algorithm.
+## 1. Project Goal
+A local GUI application designed to automate survey sample weighting in SPSS using the Iterative Proportional Fitting (IPF) / Raking algorithm. It ensures datasets align with target demographic proportions while maintaining full statistical and structural integrity.
 
-## 🚀 Key Features
-- **Smart Mapping:** Automatically maps labels from Excel (e.g., "Female") to SPSS numeric codes (e.g., "2") by analyzing file metadata.
-- **Flexible Target Entry:** Load target proportions directly from an Excel file or enter them manually via a dynamic interface.
-- **Weight Trimming:** Features built-in capping (min/max limits) to prevent extreme weights and ensure the statistical validity of the dataset.
-- **Metadata Preservation:** Generates the weighted file while keeping all original SPSS variable labels, value labels, and formats intact.
+## 2. Vibe Coding & Development Approach
+This tool was created using the "vibe coding" methodology in collaboration with AI models. As the system architect, I focused on the mathematical and methodological requirements: defining the IPF convergence loop, implementing weight trimming (capping) to prevent extreme variance, and designing the logic for reverse-mapping Excel string labels to SPSS numeric codes. AI handled the Tkinter GUI implementation and standard data manipulation boilerplate. This synergy allowed me to quickly prototype a statistically robust tool without getting bogged down in manual syntax generation.
 
-## 🛠️ Requirements
+## 3. Key Features
+- **Smart Metadata Mapping:** Automatically maps text labels from Excel (e.g., "Female") back to SPSS numeric codes (e.g., "2") by parsing the `.sav` file's internal dictionary.
+- **Flexible Target Entry:** Load target proportions via an Excel template or input them manually through a dynamic interface.
+- **Weight Trimming:** Built-in limits (e.g., 0.33 to 3.0) clip extreme weights, preventing individual respondents from skewing the final analysis.
+- **Lossless Metadata Export:** Generates the new weighted `.sav` file while preserving all original variable labels, value labels, and formatting.
+
+## 4. Security & Data Protection
+**Zero-Cloud Architecture.** Weighting often involves sensitive demographic data. This application processes `.sav` files 100% locally on the user's machine using `pandas` and `pyreadstat`. No datasets or target matrices are sent to external servers or AI APIs, ensuring full compliance with GDPR and academic data security standards.
+
+## 5. Performance & Limitations
+- **Algorithm Constraints:** The IPF algorithm is capped at 50 iterations with a 1e-4 tolerance. While sufficient for standard survey weighting, highly complex or sparse target matrices might not perfectly converge within these limits.
+- **In-Memory Processing:** Uses RAM for matrix calculations, which is highly efficient for typical survey samples but bounded by system hardware for exceptionally massive datasets.
+- **Environment Limit:** The output directory is hardcoded to `C:\WAGA SPSS`, requiring a Windows OS environment.
+
+## 6. Future Roadmap
+Planned enhancements to the open architecture include:
+- **Dynamic Save Path:** Replacing the hardcoded output directory with a user-selected folder via the GUI.
+- **Convergence Reporting:** Adding a post-processing log that informs the user whether the IPF algorithm successfully converged or hit the 50-iteration limit.
+- **Effective Base Calculation:** Automatically calculating and reporting the Weighting Efficiency / Effective Sample Size post-trimming.
+
+## 🛠️ Requirements & Execution
 - Python 3.x
-- Libraries: `pandas`, `numpy`, `pyreadstat`, `openpyxl`
-
-`pip install pandas numpy pyreadstat openpyxl`
-
-## 📖 How to Use
-1. **Load SPSS File:** Select the `.sav` data file you wish to weight.
-2. **Define Targets:** - Use an **Excel file** with three columns: Variable Name, Category, and Target Proportion (e.g., 0.5 for 50%).
-   - OR use **Manual Mode** to input proportions directly into the interface.
-3. **Set Limits:** Define the minimum and maximum allowed weights (default limits: 0.33 - 3.0).
-4. **Run:** The tool will calculate the weights and generate a new `.sav` file containing the calculated `WAGA` variable in the designated output folder.
+- Libraries: `pip install pandas numpy pyreadstat openpyxl`
+- Run: `python wazarka.py`
 
 ---
 
 # [PL] Ważarka SPSS - Automatyzacja Ważenia Danych (Raking/IPF)
 
-Profesjonalne narzędzie z interfejsem graficznym (GUI) stworzone dla specjalistów Data Processing, automatyzujące proces ważenia prób w plikach SPSS przy użyciu algorytmu Raking (Iterative Proportional Fitting).
+## 1. Cel projektu
+Lokalna aplikacja z interfejsem graficznym (GUI), automatyzująca proces ważenia prób badawczych w plikach SPSS za pomocą algorytmu Raking (Iterative Proportional Fitting). Pozwala na szybkie dostosowanie struktury próby do rozkładów populacyjnych przy zachowaniu pełnej integralności statystycznej bazy.
 
-## 🚀 Kluczowe Funkcje
-- **Inteligentne Mapowanie:** Automatycznie dopasowuje etykiety z pliku Excel (np. "Kobieta") do kodów numerycznych w SPSS (np. "2") na podstawie analizy metadanych pliku.
-- **Elastyczne źródła danych:** Możliwość wczytania proporcji docelowych bezpośrednio z arkusza Excel lub ręcznego zdefiniowania ich w interfejsie programu.
-- **Trimming (Przycinanie wag):** Wbudowana funkcja limitowania wag (min/max), zapobiegająca powstawaniu wag ekstremalnych i dbająca o poprawność statystyczną zbioru.
-- **Zachowanie Metadanych:** Zapisuje wynikowy plik, zachowując wszystkie oryginalne etykiety zmiennych, etykiety wartości oraz formaty SPSS.
+## 2. Podejście do tworzenia (Vibe Coding)
+Narzędzie powstało w modelu "vibe codingu" przy wsparciu modeli AI. Jako projektant skupiłem się na poprawności metodologicznej: zdefiniowałem pętlę konwergencji dla algorytmu IPF, logikę przycinania wag (trimming) oraz mechanizm odwróconego mapowania etykiet tekstowych z Excela na kody numeryczne SPSS. Sztuczna inteligencja zajęła się generowaniem kodu interfejsu (Tkinter) i rutynowych przekształceń danych. To dowodzi, że znajomość statystyki i logiki badawczej pozwala sprawnie budować własne oprogramowanie z pomocą AI, bez konieczności ręcznego pisania każdej funkcji.
 
-## 🛠️ Wymagania
+## 3. Kluczowe Funkcje
+- **Inteligentne Mapowanie:** Automatycznie dopasowuje etykiety tekstowe z Excela (np. "Kobieta") do kodów w SPSS (np. "2") wykorzystując wbudowany słownik bazy.
+- **Elastyczne Źródła Danych:** Możliwość wczytania proporcji celowych z pliku Excel (3 kolumny) lub wpisania ich ręcznie w dynamicznym oknie.
+- **Trimming Wag:** Funkcja limitowania wag (np. w zakresie 0.33 - 3.0), zapobiegająca powstawaniu wag ekstremalnych, które mogłyby zaburzyć wariancję bazy.
+- **Bezstratny Eksport:** Skrypt tworzy nową zmienną `WAGA` i zapisuje plik, zachowując wszystkie oryginalne etykiety zmiennych i wartości.
+
+## 4. Bezpieczeństwo i ochrona danych
+**Brak integracji z chmurą.** Ważenie danych demograficznych wymaga poufności. Skrypt przetwarza bazę całkowicie lokalnie w pamięci urządzenia za pomocą bibliotek `pandas` i `pyreadstat`. Żadne dane, w tym struktura próby, nie są wysyłane do zewnętrznych usług, co gwarantuje pełną zgodność z RODO oraz wymogami projektów uczelnianych i komercyjnych.
+
+## 5. Wydajność i ograniczenia
+- **Limity algorytmu:** Raking jest ograniczony do 50 iteracji z tolerancją błędu na poziomie 1e-4. Dla standardowych badań jest to wartość optymalna, jednak przy bardzo rzadkich lub skomplikowanych macierzach celów, algorytm może nie osiągnąć pełnej konwergencji.
+- **Zależność od Windows:** Wymuszenie zapisu pliku wynikowego do sztywno ustalonego folderu (`C:\WAGA SPSS`) sprawia, że program w obecnej wersji jest natywnie dedykowany pod system Windows.
+
+## 6. Perspektywy rozwoju
+Do najbliższych planów rozwojowych aplikacji należą:
+- **Wybór folderu zapisu:** Wdrożenie okna dialogowego pozwalającego zapisać plik w dowolnym miejscu.
+- **Raport z konwergencji:** Dodanie komunikatu informującego użytkownika, czy wagi "spięły się" przed osiągnięciem limitu 50 iteracji, czy algorytm został przerwany wymuszeniem.
+- **Efektywność ważenia:** Wyliczanie i raportowanie efektywnej wielkości próby (Effective Sample Size) po zastosowaniu limitów (trimmingu).
+
+## 🛠️ Wymagania i Uruchomienie
 - Python 3.x
-- Biblioteki: `pandas`, `numpy`, `pyreadstat`, `openpyxl`
-
-`pip install pandas numpy pyreadstat openpyxl`
-
-## 📖 Instrukcja Obsługi
-1. **Wybierz plik SPSS:** Wskaż bazę danych w formacie `.sav`.
-2. **Zdefiniuj cele (Targets):**
-   - Użyj **pliku Excel** z trzema kolumnami: Nazwa Zmiennej, Kategoria, Proporcja Docelowa (np. 0.4 dla 40%).
-   - LUB wybierz **Tryb Ręczny**, aby wpisać wartości bezpośrednio w oknach dialogowych.
-3. **Ustaw Limity:** Określ dolną i górną granicę wagi (standardowy zakres: 0.33 - 3.0).
-4. **Generuj:** Program wyliczy wagi i utworzy nowy plik `.sav` z dodaną zmienną `WAGA` w zdefiniowanym folderze roboczym.
+- Biblioteki: `pip install pandas numpy pyreadstat openpyxl`
+- Uruchomienie: `python wazarka.py`
